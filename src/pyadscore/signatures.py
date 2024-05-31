@@ -1,7 +1,39 @@
+from abc import ABC, abstractmethod
 from inspect import isfunction
 import struct
-from Formatter import AbstractFormatter
-from Signature import AbstractSignature
+from formatters import AbstractFormatter, Base64
+
+
+class AbstractSignature(ABC):
+
+    _payload = None
+    _result = None
+
+    def get_payload(self):
+        return self._payload
+
+    def set_payload(self, payload):
+        assert isinstance(payload, dict)
+        self._payload = payload
+
+    def get_result(self):
+        if self._result is None:
+            raise RuntimeError("Result unavailable for unverified signature")
+        return self._result
+
+    @staticmethod
+    @abstractmethod
+    def create_from_request(signature, ip_addresses, user_agent, crypt_key, formatter=None):
+        pass
+
+    @staticmethod
+    def _get_default_formatter():
+        return Base64(Base64.BASE64_VARIANT_URLSAFE_NO_PADDING, True)
+
+    @staticmethod
+    def _bytes_compare(known, user, n):
+        # todo
+        pass
 
 
 class Signature5(AbstractSignature):
@@ -26,12 +58,11 @@ class Signature5(AbstractSignature):
     def create_from_request(signature, ip_addresses, user_agent, crypt_key, formatter=None):
         obj = Signature5()
         if isinstance(crypt_key, (str, bytes)):
-            on_crypt_key_request = lambda zone_id: crypt_key  # E731 deliberate violation
+            obj.parse(signature, lambda zone_id: crypt_key, formatter)
         elif isfunction(crypt_key):
-            on_crypt_key_request = crypt_key
+            obj.parse(signature, crypt_key, formatter)
         else:
             raise TypeError("crypt_key must be a string or a function")
-        obj.parse(signature, on_crypt_key_request, formatter)
         obj.verify(ip_addresses, user_agent)
         return obj
 
@@ -47,7 +78,7 @@ class Signature5(AbstractSignature):
         if formatter is None:
             formatter = self._get_default_formatter()
         else:
-            assert isinstance(formatter, AbstractFormatter.AbstractFormatter)
+            assert isinstance(formatter, AbstractFormatter)
         payload = formatter.parse(signature)
         if len(payload) <= self.HEADER_LENGTH:
             raise RuntimeError("Malformed signature")
@@ -64,4 +95,3 @@ class Signature5(AbstractSignature):
     def _decrypt_payload(self, payload, key):
 
         return {}
-

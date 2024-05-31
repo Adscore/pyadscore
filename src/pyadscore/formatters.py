@@ -1,5 +1,16 @@
-from Formatter import AbstractFormatter
+from abc import ABC, abstractmethod
 import base64
+
+
+class AbstractFormatter(ABC):
+
+    @abstractmethod
+    def format(self, value):
+        pass
+
+    @abstractmethod
+    def parse(self, value):
+        pass
 
 
 class Base64(AbstractFormatter):
